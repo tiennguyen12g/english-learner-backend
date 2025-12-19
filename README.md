@@ -1,175 +1,149 @@
-## Git
-git remote add nestjs-default https://github.com/tiennguyen12g/nestjs-default.git
-git push -u nestjs-default main
+# NestJS Template
 
-## Initial setup NestJS project
-1. Install nestjs in global if it has not installed yet:
-```
-npm i -g @nestjs/cli
-```
-2. Create new project:
-```
- nest new project-name
-```
-3. Install dependencies:
-```
-npm i
-```
-### 1. Add hot reload
-** reference:
-```
-https://docs.nestjs.com/recipes/hot-reload#installation
-```
-1. Install
-```
-npm i --save-dev webpack-node-externals run-script-webpack-plugin webpack
-```
-2. Create file in root folder:
--- webpack-hmr.config.js
-and add this code (Note: change "autoRestart": true)
-```
-const nodeExternals = require('webpack-node-externals');
-const { RunScriptWebpackPlugin } = require('run-script-webpack-plugin');
+A clean and production-ready NestJS template with TypeScript, MongoDB support, validation, and hot reload configured.
 
-module.exports = function (options, webpack) {
-  return {
-    ...options,
-    entry: ['webpack/hot/poll?100', options.entry],
-    externals: [
-      nodeExternals({
-        allowlist: ['webpack/hot/poll?100'],
-      }),
-    ],
-    plugins: [
-      ...options.plugins,
-      new webpack.HotModuleReplacementPlugin(),
-      new webpack.WatchIgnorePlugin({
-        paths: [/\.js$/, /\.d\.ts$/],
-      }),
-      new RunScriptWebpackPlugin({ name: options.output.filename, autoRestart: false }),
-    ],
-  };
-};
-```
-3. Go to main.ts and add:
-```
-declare const module: any;
-```
-and 
-```
-  if (module.hot) {
-    module.hot.accept();
-    module.hot.dispose(() => app.close());
-  }
-```
-4. Go to package.json and add:
-```
-"start:dev": "nest build --webpack --webpackPath webpack-hmr.config.js --watch"
-```
-### 2. Config .evn
-** Reference:
-```
-https://docs.nestjs.com/techniques/configuration#custom-env-file-path
-```
-1. Install
-```
-npm i --save @nestjs/config
-```
-2. Go to app.module.ts and add:
-```
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+## Features
 
-@Module({
-  imports: [
-    ConfigModule.forRoot(
-      {isGlobal: true,} // Enable this to use .env for all module
-    )
-  ],
-})
-export class AppModule {}
-```
-### Setup validator for body request
-1. Install
-```
-npm i zod
-```
-2. In "src" create file "valistion.pipe.ts" and add:
-```
-import { PipeTransform, Injectable, ArgumentMetadata, BadRequestException } from '@nestjs/common';
-import { ZodSchema } from 'zod';
+- ✅ **NestJS 10** with TypeScript
+- ✅ **Hot Module Replacement (HMR)** for fast development
+- ✅ **Environment Configuration** using `@nestjs/config`
+- ✅ **MongoDB Support** with Mongoose (optional, ready to use)
+- ✅ **Zod Validation** pipe for request validation
+- ✅ **ESLint & Prettier** configured
+- ✅ **Utility Functions** (UUID, Time, Sleeper)
 
-@Injectable()
-export class ZodValidationPipe implements PipeTransform {
-  constructor(private schema: ZodSchema<any>, private action: string) {}
+## Prerequisites
 
-  transform(value: any, metadata: ArgumentMetadata) {
-    const validation = this.schema.safeParse(value);
-    if (!validation.success) {
-      throw new BadRequestException({
-        action: this.action,
-        message: 'Validation failed',
-        errors: validation.error.errors,
-      });
-    }
-    return validation.data;
-  }
-}
-
-```
-
-### 4. Connect MongoDB
-1. Install
-```
-npm i @nestjs/mongoose mongoose
-```
-2. Import to app.module.ts
-```
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-
-@Module({
-  imports: [MongooseModule.forRoot('mongodb://localhost/nest')],
-})
-export class AppModule {}
-```
-## How nestjs work
-1. Controller
-It receives the request from client.
-2. Service
-Handle the request
+- Node.js (v18 or higher)
+- npm or yarn
+- MongoDB (optional, if using database)
 
 ## Installation
 
+1. Clone or use this template:
 ```bash
-$ npm install
+git clone <repository-url>
+cd nestjs-template
 ```
 
-## Running the app
-
+2. Install dependencies:
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Test
-
+3. Copy environment file:
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cp env.example .env
 ```
 
-##
+4. Update `.env` with your configuration:
+```env
+PORT=3000
+HOST=0.0.0.0
+# MONGODB_URI=mongodb://localhost:27017/nestjs-template
+```
 
+## Running the App
+
+```bash
+# Development mode with hot reload
+npm run start:dev
+
+# Standard development mode
+npm run start
+
+# Debug mode
+npm run start:debug
+
+# Production mode
+npm run start:prod
+```
+
+The server will start on `http://localhost:3000` (or your configured PORT).
+
+## Project Structure
+
+```
+src/
+├── app.controller.ts      # Main controller
+├── app.service.ts         # Main service
+├── app.module.ts          # Root module
+├── main.ts                # Application entry point
+├── validation.pipe.ts     # Zod validation pipe
+└── utils/                 # Utility functions
+    ├── GetCurrentTime.ts
+    ├── Sleeper.ts
+    └── Uuid.ts
+```
+
+## Adding MongoDB
+
+1. Uncomment the MongoDB configuration in `src/app.module.ts`:
+```typescript
+import { MongooseModule } from '@nestjs/mongoose';
+
+@Module({
+  imports: [
+    // ... other imports
+    MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/nestjs-template'),
+  ],
+})
+```
+
+2. Set `MONGODB_URI` in your `.env` file.
+
+## Using Validation Pipe
+
+The template includes a Zod validation pipe. Example usage:
+
+```typescript
+import { ZodValidationPipe } from './validation.pipe';
+import { z } from 'zod';
+
+const createUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+
+@Post()
+@UsePipes(new ZodValidationPipe({ schema: createUserSchema, action: 'createUser' }))
+createUser(@Body() body: CreateUserDto) {
+  // body is validated
+}
+```
+
+## Creating a New Module
+
+Use NestJS CLI to generate modules:
+
+```bash
+# Generate a module
+nest g module modules/users
+
+# Generate a controller
+nest g controller modules/users
+
+# Generate a service
+nest g service modules/users
+```
+
+## Scripts
+
+- `npm run build` - Build the project
+- `npm run format` - Format code with Prettier
+- `npm run lint` - Lint code with ESLint
+- `npm run test` - Run unit tests
+- `npm run test:watch` - Run tests in watch mode
+- `npm run test:cov` - Run tests with coverage
+
+## Configuration Files
+
+- `nest-cli.json` - NestJS CLI configuration
+- `tsconfig.json` - TypeScript configuration
+- `.eslintrc.js` - ESLint configuration
+- `.prettierrc` - Prettier configuration
+- `webpack-hmr.config.js` - Webpack HMR configuration
+
+## License
+
+MIT

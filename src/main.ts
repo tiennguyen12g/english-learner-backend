@@ -2,16 +2,20 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 declare const module: any;
-const port = process.env.SERVER_PORT;
-const listenIP = process.env.SERVER_LISTEN;
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule,{
-    logger: ['error', 'warn'], // false to disable or Values in the array can be any combination of 'log', 'fatal', 'error', 'warn', 'debug', and 'verbose'.
-  });
-  await app.listen(port,listenIP,()=>{
-    console.log(`Server is running on http://${listenIP}:${port}`);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log'], // Configure logging: 'log', 'fatal', 'error', 'warn', 'debug', 'verbose'
   });
 
+  const port = process.env.PORT || 3000;
+  const host = process.env.HOST || '0.0.0.0';
+
+  await app.listen(port, host, () => {
+    console.log(`Server is running on http://${host}:${port}`);
+  });
+
+  // Hot Module Replacement (HMR) support
   if (module.hot) {
     module.hot.accept();
     module.hot.dispose(() => app.close());
