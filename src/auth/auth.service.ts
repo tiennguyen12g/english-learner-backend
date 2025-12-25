@@ -15,11 +15,11 @@ export class AuthService {
   ) {}
 
   async generateAccessToken(payload: any) {
-    return this.jwtService.sign(payload, { expiresIn: '15m' });
+    return this.jwtService.sign(payload, { expiresIn: '15m' }); // 15 minutes - matches cookie maxAge
   }
 
   async generateRefreshToken(payload: any) {
-    return this.jwtService.sign(payload, { expiresIn: '7d' });
+    return this.jwtService.sign(payload, { expiresIn: '30d' });
   }
 
   async validateUser(bodyData: User_Login_Type): Promise<any> {
@@ -85,16 +85,32 @@ export class AuthService {
     }
   }
   async refreshToken(refreshToken: string) {
-    const user = this.jwtService.verify(refreshToken);
-    if (!user) throw new UnauthorizedException();
-    const payload = {
-      email: user.email,
-      user_id: user.user_id || user._id,
-      role: user.role || 'user',
-    };
-    const access_token = await this.generateAccessToken(payload);
-    const new_refresh_token = await this.generateRefreshToken(payload);
-    return { access_token, refresh_token: new_refresh_token };
+    try {
+      console.log('🔵 [AuthService] Verifying refresh token...');
+      const user = this.jwtService.verify(refreshToken);
+      console.log('🔵 [AuthService] Refresh token verified, user:', { email: user.email, user_id: user.user_id });
+      
+      if (!user) {
+        console.error('❌ [AuthService] Refresh token verification returned null');
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+      
+      const payload = {
+        email: user.email,
+        user_id: user.user_id || user._id,
+        role: user.role || 'user',
+      };
+      
+      console.log('🔵 [AuthService] Generating new tokens...');
+      const access_token = await this.generateAccessToken(payload);
+      const new_refresh_token = await this.generateRefreshToken(payload);
+      console.log('✅ [AuthService] New tokens generated successfully');
+      
+      return { access_token, refresh_token: new_refresh_token };
+    } catch (error) {
+      console.error('❌ [AuthService] Error refreshing token:', error);
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 
   // Wallet functionality removed from template - can be added as needed

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { UserMongoService } from './services/user-mongo.service';
-import { User_Register_Type, User_Login_Type, User_Type } from './user.interface';
+import { User_Register_Type, User_Login_Type, User_Type, User_ProfileUpdate_Type, User_ChangePassword_Type } from './user.interface';
 
 @Injectable()
 export class UserService {
@@ -39,6 +39,20 @@ export class UserService {
    */
   async getBaseUserData({ existingUser, network_name }: { existingUser: User_Type; network_name?: string }) {
     return this.userMongoService.mongo_get_baseUserData({ existingUser, network_name });
+  }
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(userId: string, profileData: User_ProfileUpdate_Type) {
+    return this.userMongoService.mongo_updateProfile(userId, profileData);
+  }
+
+  /**
+   * Change user password
+   */
+  async changePassword(userId: string, passwordData: User_ChangePassword_Type) {
+    return this.userMongoService.mongo_changePassword(userId, passwordData);
   }
 }
 

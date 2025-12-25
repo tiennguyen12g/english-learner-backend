@@ -58,17 +58,50 @@ export class AuthController {
         network_name: req.body?.network_name,
       });
       if (getUserData.status === 'Success') {
-        response.cookie('access_token', access_token, {
+        // Get origin from request to set proper cookie options
+        const origin = req.headers.origin;
+        console.log('🔵 [Login] Setting cookies for origin:', origin);
+        console.log('🔵 [Login] Request protocol:', req.protocol);
+        console.log('🔵 [Login] X-Forwarded-Proto:', req.headers['x-forwarded-proto']);
+        
+        // Determine if request is secure (HTTPS)
+        // Check X-Forwarded-Proto if behind proxy (nginx), otherwise check req.protocol
+        const isSecure = req.headers['x-forwarded-proto'] === 'https' || req.protocol === 'https';
+        const isHttpsOrigin = origin && origin.startsWith('https://');
+        
+        // CRITICAL: sameSite: 'none' REQUIRES secure: true (browser requirement)
+        // Only use 'none' when we can also use secure: true (HTTPS connection)
+        // Otherwise, use 'lax' (note: 'lax' doesn't send cookies for cross-origin POST/PATCH, but it's the only option for HTTP)
+        const canUseSecure = isSecure; // Can use secure only if connection is HTTPS
+        const shouldUseSameSiteNone = isHttpsOrigin && canUseSecure; // Only use 'none' if HTTPS origin AND secure connection
+        
+        const cookieOptions: any = {
           httpOnly: true,
-          // secure: true,
+          secure: canUseSecure && isHttpsOrigin, // Use secure only when connection is HTTPS and origin is HTTPS
+          sameSite: shouldUseSameSiteNone ? 'none' : 'lax', // 'none' only when we can use secure: true
+        };
+        
+        console.log('🔵 [Login] Cookie options:', { 
+          secure: cookieOptions.secure, 
+          sameSite: cookieOptions.sameSite,
+          isSecure,
+          isHttpsOrigin,
+          canUseSecure,
+          shouldUseSameSiteNone,
+          note: shouldUseSameSiteNone ? 'Using sameSite: none (requires secure: true)' : 'Using sameSite: lax (HTTP backend - cookies may not work for cross-origin POST/PATCH)'
+        });
+        
+        response.cookie('access_token', access_token, {
+          ...cookieOptions,
           maxAge: 15 * 60 * 1000, // 15 minutes
         });
 
         response.cookie('refresh_token', refresh_token, {
-          httpOnly: true,
-          // secure: true,
+          ...cookieOptions,
           maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         });
+        
+        console.log('✅ [Login] Cookies set successfully');
 
         return response.status(HttpStatus.OK).json(getUserData);
       } else {
@@ -80,31 +113,76 @@ export class AuthController {
   }
 
   // Google login removed from template - can be added as needed
- 
+
+  /**
+   * Refresh access token
+   * POST /api/v1/auth/refresh-token
+   * 
+   * Must be public - uses refresh_token from httpOnly cookie (doesn't require access_token)
+   */
+  @Public()
   @Post('refresh-token')
   async refreshToken(@Request() req: any, @Res() response: Response) {
     try {
-      // console.log('Cookies received:', req.cookies);
+      console.log('🔵 [RefreshToken] Refresh token request received');
+      console.log('🔵 [RefreshToken] Cookies:', req.cookies ? Object.keys(req.cookies).join(', ') : 'No cookies');
+      
       const refreshToken = req.cookies.refresh_token; // Get the refresh token from cookies
+      
+      if (!refreshToken) {
+        console.error('❌ [RefreshToken] No refresh_token cookie found');
+        return response.status(HttpStatus.UNAUTHORIZED).json({ 
+          status: 'Failed',
+          message: 'No refresh token provided' 
+        });
+      }
+      
+      console.log('🔵 [RefreshToken] Refresh token found, generating new tokens...');
       const newTokens = await this.authService.refreshToken(refreshToken);
-      // Set new tokens in cookies
-      response.cookie('access_token', newTokens.access_token, {
+      
+      // Get origin from request to set proper cookie options
+      const origin = req.headers.origin;
+      const isSecure = req.headers['x-forwarded-proto'] === 'https' || req.protocol === 'https';
+      const isHttpsOrigin = origin && origin.startsWith('https://');
+      
+      // Same logic as login: only use 'none' when we can use secure: true
+      const canUseSecure = isSecure;
+      const shouldUseSameSiteNone = isHttpsOrigin && canUseSecure;
+      
+      // Set new tokens in cookies - use same logic as login
+      const cookieOptions: any = {
         httpOnly: true,
-        secure: false,
+        secure: canUseSecure && isHttpsOrigin, // Use secure only when connection is HTTPS and origin is HTTPS
+        sameSite: shouldUseSameSiteNone ? 'none' : 'lax', // 'none' only when we can use secure: true
+      };
+      
+      console.log('🔵 [RefreshToken] Cookie options:', { 
+        secure: cookieOptions.secure, 
+        sameSite: cookieOptions.sameSite,
+        isSecure,
+        isHttpsOrigin,
+        canUseSecure,
+        shouldUseSameSiteNone
+      });
+      
+      response.cookie('access_token', newTokens.access_token, {
+        ...cookieOptions,
         maxAge: 15 * 60 * 1000, // 15 minutes
-        sameSite: 'lax',
       });
 
       response.cookie('refresh_token', newTokens.refresh_token, {
-        httpOnly: true,
-        secure: false,
+        ...cookieOptions,
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        sameSite: 'lax',
       });
 
       response.status(HttpStatus.OK).json({ success: true });
+      console.log('✅ [RefreshToken] New tokens set in cookies successfully');
     } catch (error) {
-      response.status(HttpStatus.UNAUTHORIZED).json({ message: 'Invalid refresh token' });
+      console.error('❌ [RefreshToken] Error refreshing token:', error);
+      response.status(HttpStatus.UNAUTHORIZED).json({ 
+        status: 'Failed',
+        message: error.message || 'Invalid refresh token' 
+      });
     }
   }
 

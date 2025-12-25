@@ -20,7 +20,7 @@ import { Auth2FAModule } from './2fa/2fa.module';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET_KEY'),
-        signOptions: { expiresIn: '300s' },
+        signOptions: { expiresIn: '15m' }, // 15 minutes - matches cookie maxAge and generateAccessToken
       }),
       inject: [ConfigService],
     }),

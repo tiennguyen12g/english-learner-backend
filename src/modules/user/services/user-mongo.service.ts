@@ -1,8 +1,8 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../user.schema';
-import { User_Register_Type, User_Login_Type, User_Type, User_RegisterOutput_Type } from '../user.interface';
+import { User_Register_Type, User_Login_Type, User_Type, User_RegisterOutput_Type, User_ProfileUpdate_Type, User_ChangePassword_Type } from '../user.interface';
 import { hashPassword, validateUserPassword } from '../../../utils/bcryptPassword';
 import { ResponseData } from '../../../global/GlobalResponseData';
 
@@ -15,9 +15,12 @@ export class UserMongoService {
    */
   async mongo_createUser(registerData: User_Register_Type): Promise<User_RegisterOutput_Type> {
     try {
+      console.log('🔵 [mongo_createUser] Starting user creation for email:', registerData.email);
+      
       // Check if user already exists
       const existingUser = await this.userModel.findOne({ email: registerData.email }).lean();
       if (existingUser) {
+        console.log('❌ [mongo_createUser] User already exists');
         return {
           message: 'User with this email already exists',
           status: 'Failed',
@@ -25,16 +28,33 @@ export class UserMongoService {
       }
 
       // Hash password
+      console.log('🔵 [mongo_createUser] Hashing password...');
       const hashedPassword = await hashPassword(registerData.password);
 
       // Create new user
+      console.log('🔵 [mongo_createUser] Creating user model...');
       const newUser = new this.userModel({
         email: registerData.email,
         password: hashedPassword,
         role: 'user',
+        profile: {
+          firstName: registerData.firstName || "English",
+          lastName: registerData.lastName || "Learner",
+        },
       });
 
+      console.log('🔵 [mongo_createUser] Saving user to database...');
       const savedUser = await newUser.save();
+      console.log('✅ [mongo_createUser] User saved successfully with ID:', savedUser._id);
+      
+      // Verify the user was actually saved by querying the database
+      const verifiedUser = await this.userModel.findById(savedUser._id).lean();
+      if (!verifiedUser) {
+        console.error('❌ [mongo_createUser] User was not found in database after save!');
+        throw new Error('Failed to save user to database');
+      }
+      console.log('✅ [mongo_createUser] User verified in database:', verifiedUser.email);
+      
       const { password, ...userWithoutPassword } = savedUser.toObject();
 
       return {
@@ -44,16 +64,20 @@ export class UserMongoService {
           email: userWithoutPassword.email,
           role: userWithoutPassword.role,
           _id: userWithoutPassword._id.toString(),
+          profile: userWithoutPassword.profile,
         },
       } as any;
     } catch (error) {
+      console.error('❌ [mongo_createUser] Error creating user:', error);
       if (error.code === 11000) {
         // Duplicate key error
+        console.log('❌ [mongo_createUser] Duplicate key error (email already exists)');
         return {
           message: 'User with this email already exists',
           status: 'Failed',
         } as any;
       }
+      console.error('❌ [mongo_createUser] Throwing error:', error.message);
       throw error;
     }
   }
@@ -103,10 +127,19 @@ export class UserMongoService {
       }
 
       const { password, ...userWithoutPassword } = user;
+      // Convert _id to string for consistency (same as mongo_loginUser)
+      const userData = {
+        ...userWithoutPassword,
+        _id: userWithoutPassword._id.toString(),
+      };
+      
+      console.log('🔵 [mongo_get_baseUserData] Fetched user data from database:');
+      console.log('🔵 [mongo_get_baseUserData] Profile:', JSON.stringify(userData.profile, null, 2));
+      
       return {
         status: 'Success',
         message: 'Get user data successful',
-        data: userWithoutPassword,
+        data: userData,
       };
     } catch (error) {
       return {
@@ -236,6 +269,133 @@ export class UserMongoService {
         status: 'Failed',
         message: error.message,
       };
+    }
+  }
+
+  /**
+   * Update user profile
+   */
+  async mongo_updateProfile(userId: string, profileData: User_ProfileUpdate_Type): Promise<User_Type> {
+    try {
+      console.log('🔵 [mongo_updateProfile] Updating profile for user ID:', userId);
+      console.log('🔵 [mongo_updateProfile] Profile data:', profileData);
+
+      // Find user by ID
+      const user = await this.userModel.findById(userId);
+      if (!user) {
+        console.log('❌ [mongo_updateProfile] User not found');
+        throw new NotFoundException('User not found');
+      }
+
+      // Update profile fields (merge with existing profile)
+      if (!user.profile) {
+        user.profile = {};
+      }
+
+      // Track if any profile field was updated
+      let profileUpdated = false;
+
+      // Update only provided fields
+      if (profileData.firstName !== undefined) {
+        user.profile.firstName = profileData.firstName;
+        profileUpdated = true;
+      }
+      if (profileData.lastName !== undefined) {
+        user.profile.lastName = profileData.lastName;
+        profileUpdated = true;
+      }
+      if (profileData.bio !== undefined) {
+        user.profile.bio = profileData.bio;
+        profileUpdated = true;
+      }
+      if (profileData.avatar !== undefined) {
+        user.profile.avatar = profileData.avatar;
+        profileUpdated = true;
+      }
+      if (profileData.nativeLanguage !== undefined) {
+        user.profile.nativeLanguage = profileData.nativeLanguage;
+        profileUpdated = true;
+      }
+      if (profileData.learningLevel !== undefined) {
+        user.profile.learningLevel = profileData.learningLevel;
+        profileUpdated = true;
+      }
+      if (profileData.phoneNumber !== undefined) {
+        user.profile.phoneNumber = profileData.phoneNumber;
+        profileUpdated = true;
+      }
+      if (profileData.location !== undefined) {
+        user.profile.location = profileData.location;
+        profileUpdated = true;
+      }
+
+      // CRITICAL: Mark the profile object as modified so Mongoose detects the change
+      // This is required for nested object updates in Mongoose
+      if (profileUpdated) {
+        user.markModified('profile');
+        console.log('🔵 [mongo_updateProfile] Profile marked as modified');
+      }
+
+      // Save updated user
+      const updatedUser = await user.save();
+      console.log('✅ [mongo_updateProfile] Profile updated successfully');
+      console.log('🔵 [mongo_updateProfile] Saved profile:', JSON.stringify(updatedUser.profile, null, 2));
+
+      // Return user without password
+      const { password, ...userWithoutPassword } = updatedUser.toObject();
+      return userWithoutPassword as User_Type;
+    } catch (error) {
+      console.error('❌ [mongo_updateProfile] Error updating profile:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Change user password
+   */
+  async mongo_changePassword(userId: string, passwordData: User_ChangePassword_Type): Promise<{ status: string; message: string }> {
+    try {
+      console.log('🔵 [mongo_changePassword] Changing password for user ID:', userId);
+
+      // Find user by ID
+      const user = await this.userModel.findById(userId);
+      if (!user) {
+        console.log('❌ [mongo_changePassword] User not found');
+        throw new NotFoundException('User not found');
+      }
+
+      // Verify current password
+      const isCurrentPasswordValid = await validateUserPassword({
+        password: passwordData.currentPassword,
+        hash: user.password,
+      });
+
+      if (!isCurrentPasswordValid) {
+        console.log('❌ [mongo_changePassword] Current password is incorrect');
+        return {
+          status: 'Failed',
+          message: 'Current password is incorrect',
+        };
+      }
+
+      // Hash new password
+      console.log('🔵 [mongo_changePassword] Hashing new password...');
+      const hashedNewPassword = await hashPassword(passwordData.newPassword);
+
+      // Update password
+      user.password = hashedNewPassword;
+      
+      // Save updated user
+      await user.save();
+      console.log('✅ [mongo_changePassword] Password changed successfully');
+
+      return {
+        status: 'Success',
+        message: 'Password changed successfully',
+      };
+    } catch (error) {
+      console.error('❌ [mongo_changePassword] Error changing password:', error);
+      throw error;
     }
   }
 }

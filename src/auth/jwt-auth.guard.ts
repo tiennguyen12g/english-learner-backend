@@ -23,13 +23,17 @@ export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
+    
+    console.log('🔵 [JwtAuthGuard] canActivate triggered');
+    console.log('🔵 [JwtAuthGuard] isPublic:', isPublic);
+    console.log('🔵 [JwtAuthGuard] Route:', context.switchToHttp().getRequest().path);
 
     if (isPublic) {
+      console.log('✅ [JwtAuthGuard] Route is public, skipping auth');
       return true;
     }
-    // const incomingData = context.getArgs()incomingData[0].cookies
-    console.log('1. JwtAuthGuard canActivate triggered' );
-    // console.log('body', incomingData[0].body);
+    
+    console.log('🔵 [JwtAuthGuard] Route requires authentication, checking JWT...');
     return super.canActivate(context); // Delegates to the AuthGuard class (which uses Passport)
   }
 }
