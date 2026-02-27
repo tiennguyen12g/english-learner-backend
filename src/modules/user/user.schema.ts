@@ -166,6 +166,26 @@ class MaterialProgressSchema {
   metadata?: Record<string, any>; // Additional data like scores, notes, etc.
 }
 
+// ==================== AI Provider Schema ====================
+class AIProviderSchema {
+  @Prop({ type: String, required: true })
+  apiKey: string; // Encrypted API key
+
+  @Prop({ type: Boolean, default: true })
+  enabled: boolean;
+
+  @Prop({ type: Date })
+  lastUsed?: Date;
+}
+
+class AIProvidersSchema {
+  @Prop({ type: AIProviderSchema, _id: false })
+  openai?: AIProviderSchema;
+
+  @Prop({ type: AIProviderSchema, _id: false })
+  gemini?: AIProviderSchema;
+}
+
 // ==================== Main User Schema ====================
 @Schema({ 
   timestamps: true,
@@ -196,6 +216,9 @@ export class User {
 
   @Prop({ type: SecureSchema, _id: false, default: {} })
   secure?: SecureSchema;
+
+  @Prop({ type: AIProvidersSchema, _id: false, default: {} })
+  aiProviders?: AIProvidersSchema;
 
   @Prop({ type: Boolean, default: true })
   isActive?: boolean;

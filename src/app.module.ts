@@ -7,6 +7,9 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 import { ArticleModule } from './modules/article/article.module';
 import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
+import { GrammarModule } from './modules/grammar/grammar.module';
+import { SpeakingModule } from './modules/speaking/speaking.module';
+import { ListeningModule } from './modules/listening/listening.module';
 
 @Module({
   imports: [
@@ -53,6 +56,9 @@ import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
     UserModule, // Import UserModule directly to ensure schema is registered
     ArticleModule, // Import ArticleModule
     VocabularyModule, // Import VocabularyModule
+    GrammarModule, // Import GrammarModule
+    SpeakingModule, // Import SpeakingModule
+    ListeningModule, // Import ListeningModule
     AuthModule,
   ],
   controllers: [AppController],

@@ -93,7 +93,7 @@ export class AuthController {
         
         response.cookie('access_token', access_token, {
           ...cookieOptions,
-          maxAge: 15 * 60 * 1000, // 15 minutes
+          maxAge: 12 * 60 * 60 * 1000, // 12 hours
         });
 
         response.cookie('refresh_token', refresh_token, {
@@ -167,7 +167,7 @@ export class AuthController {
       
       response.cookie('access_token', newTokens.access_token, {
         ...cookieOptions,
-        maxAge: 15 * 60 * 1000, // 15 minutes
+        maxAge: 12 * 60 * 60 * 1000, // 12 hours
       });
 
       response.cookie('refresh_token', newTokens.refresh_token, {

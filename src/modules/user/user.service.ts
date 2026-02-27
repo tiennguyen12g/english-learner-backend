@@ -54,5 +54,40 @@ export class UserService {
   async changePassword(userId: string, passwordData: User_ChangePassword_Type) {
     return this.userMongoService.mongo_changePassword(userId, passwordData);
   }
+
+  /**
+   * Add or update AI provider API key
+   */
+  async updateAIProviderKey(userId: string, provider: 'openai' | 'gemini', apiKey: string) {
+    return this.userMongoService.mongo_updateAIProviderKey(userId, provider, apiKey);
+  }
+
+  /**
+   * Get AI provider status (without keys)
+   */
+  async getAIProviderStatus(userId: string) {
+    return this.userMongoService.mongo_getAIProviderStatus(userId);
+  }
+
+  /**
+   * Delete AI provider API key
+   */
+  async deleteAIProviderKey(userId: string, provider: 'openai' | 'gemini') {
+    return this.userMongoService.mongo_deleteAIProviderKey(userId, provider);
+  }
+
+  /**
+   * Get decrypted API key (for internal use)
+   */
+  async getDecryptedAPIKey(userId: string, provider: 'openai' | 'gemini') {
+    return this.userMongoService.mongo_getDecryptedAPIKey(userId, provider);
+  }
+
+  /**
+   * Update last used timestamp
+   */
+  async updateAIProviderLastUsed(userId: string, provider: 'openai' | 'gemini') {
+    return this.userMongoService.mongo_updateAIProviderLastUsed(userId, provider);
+  }
 }
 

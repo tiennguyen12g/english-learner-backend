@@ -53,6 +53,14 @@ export const User_ChangePassword_Schema = z.object({
 });
 
 /**
+ * AI Provider Key Update Schema
+ */
+export const User_AIProviderKey_Schema = z.object({
+  provider: z.enum(['openai', 'gemini']),
+  apiKey: z.string().min(1, 'API key is required'),
+});
+
+/**
  * Base User Schema (for validation)
  */
 export const User_Schema = z.object({
@@ -82,6 +90,11 @@ export type User_ProfileUpdate_Type = z.infer<typeof User_ProfileUpdate_Schema>;
  * User Change Password Type
  */
 export type User_ChangePassword_Type = z.infer<typeof User_ChangePassword_Schema>;
+
+/**
+ * AI Provider Key Update Type
+ */
+export type User_AIProviderKey_Type = z.infer<typeof User_AIProviderKey_Schema>;
 
 /**
  * JWT Payload Type (what's stored in JWT token)
@@ -186,6 +199,18 @@ export type User_Type = {
       twoFactorSecret?: string;
       otpauth_url?: string;
       is2FAVerified?: boolean;
+    };
+  };
+  aiProviders?: {
+    openai?: {
+      apiKey: string; // Encrypted
+      enabled: boolean;
+      lastUsed?: Date;
+    };
+    gemini?: {
+      apiKey: string; // Encrypted
+      enabled: boolean;
+      lastUsed?: Date;
     };
   };
   isActive?: boolean;

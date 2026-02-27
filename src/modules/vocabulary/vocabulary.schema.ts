@@ -42,6 +42,65 @@ export class TagsSchema {
   actions?: string[]; // Custom action tags (e.g., 'cooking', 'reading')
 }
 
+// ==================== Phrasal Verb Schema ====================
+@Schema({ _id: false })
+export class PhrasalVerbSchema {
+  @Prop({ type: String, required: true, trim: true })
+  phrase: string; // e.g., "look for", "look at"
+
+  @Prop({ type: String, required: true, trim: true })
+  meaning: string; // English meaning
+
+  @Prop({ type: String, trim: true })
+  translation?: string; // Learner's language meaning
+}
+
+// ==================== Word Form Schema ====================
+@Schema({ _id: false })
+export class WordFormSchema {
+  @Prop({ type: String, required: true, trim: true })
+  formType: string; // e.g., "past tense", "plural", "comparative", "superlative", "past participle", "present participle", "third person singular"
+
+  @Prop({ type: String, required: true, trim: true })
+  form: string; // The actual word form, e.g., "studied", "children", "better"
+}
+
+// ==================== Practice Sentence Schema ====================
+@Schema({ _id: false })
+export class PracticeSentenceSchema {
+  @Prop({ type: String, required: true, trim: true })
+  sentence: string; // User's original sentence
+
+  @Prop({ type: String, trim: true })
+  correctedSentence?: string; // AI-corrected version
+
+  @Prop({ type: Number, required: true, min: 0, max: 100 })
+  grammarScore: number; // 0-100
+
+  @Prop({ type: Object, required: true, _id: false })
+  feedback: {
+    grammar: string[]; // Grammar errors found
+    spelling: string[]; // Spelling mistakes
+    structure: string[]; // Sentence structure issues
+    improvements: string[]; // Improvement suggestions
+  };
+
+  @Prop({ type: [String], default: [] })
+  suggestions: string[]; // Additional suggestions
+
+  @Prop({ type: String, trim: true })
+  exampleSentence?: string; // B1+ level example sentence
+
+  @Prop({ type: String, enum: ['openai', 'gemini'], required: true })
+  provider: string; // Which AI provider was used
+
+  @Prop({ type: Boolean, default: false })
+  isCorrect?: boolean; // User's manual mark or auto-mark based on score
+
+  @Prop({ type: Date, default: Date.now })
+  createdAt: Date;
+}
+
 // ==================== Main Vocabulary Schema ====================
 @Schema({ 
   timestamps: true,
@@ -78,14 +137,50 @@ export class Vocabulary {
   @Prop({ type: Boolean, default: false })
   showTranslation?: boolean; // Whether to show translation by default
 
-  @Prop({ type: Number, required: true, min: 1, max: 10, default: 5 })
-  difficulty: number; // Difficulty level 1-10
+  @Prop({ 
+    type: String, 
+    enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+    default: 'A1',
+    required: true
+  })
+  difficulty: string; // CEFR level: A1, A2, B1, B2, C1, C2
+
+  @Prop({ type: [PhrasalVerbSchema], default: [] })
+  phrasalVerbs?: PhrasalVerbSchema[]; // Related phrasal verbs
+
+  @Prop({ type: [WordFormSchema], default: [] })
+  wordForms?: WordFormSchema[]; // Word forms (past tense, plural, comparative, etc.)
+
+  @Prop({ type: [PracticeSentenceSchema], default: [] })
+  practiceSentences?: PracticeSentenceSchema[]; // Practice sentences with AI feedback
 
   @Prop({ type: String, trim: true })
   notes?: string; // Optional notes
 
   @Prop({ type: Boolean, default: false })
   isPinned?: boolean; // Pin status for quick access
+
+  @Prop({ 
+    type: String, 
+    enum: ['new', 'learning', 'mastered', 'review'],
+    default: 'new'
+  })
+  reviewStatus?: string; // Review status: new, learning, mastered, review
+
+  @Prop({ type: Date })
+  lastReviewedAt?: Date; // Last time the word was reviewed
+
+  @Prop({ type: Date })
+  nextReviewAt?: Date; // Scheduled next review date
+
+  @Prop({ type: Number, default: 0 })
+  reviewCount?: number; // Number of times reviewed
+
+  @Prop({ type: Number, default: 0 })
+  correctCount?: number; // Number of correct answers in practice
+
+  @Prop({ type: Number, default: 0 })
+  incorrectCount?: number; // Number of incorrect answers in practice
 }
 
 export const VocabularySchema = SchemaFactory.createForClass(Vocabulary);
@@ -97,4 +192,8 @@ VocabularySchema.index({ userId: 1, createdAt: -1 });
 VocabularySchema.index({ userId: 1, word: 'text' }); // Text index for search
 VocabularySchema.index({ userId: 1, 'tags.themes': 1 });
 VocabularySchema.index({ userId: 1, difficulty: 1 });
+VocabularySchema.index({ userId: 1, word: 1 }); // Index for word-based lookup
+VocabularySchema.index({ userId: 1, reviewStatus: 1 });
+VocabularySchema.index({ userId: 1, nextReviewAt: 1 });
+VocabularySchema.index({ userId: 1, createdAt: 1 }); // For date range filtering
 

@@ -398,5 +398,149 @@ export class UserMongoService {
       throw error;
     }
   }
+
+  /**
+   * Add or update AI provider API key
+   */
+  async mongo_updateAIProviderKey(
+    userId: string,
+    provider: 'openai' | 'gemini',
+    apiKey: string,
+  ): Promise<{ status: string; message: string; provider: string; enabled: boolean }> {
+    try {
+      console.log(`🔵 [mongo_updateAIProviderKey] Updating ${provider} API key for user ID:`, userId);
+
+      const user = await this.userModel.findById(userId);
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Initialize aiProviders if it doesn't exist
+      if (!user.aiProviders) {
+        user.aiProviders = {};
+      }
+
+      // Update the provider
+      user.aiProviders[provider] = {
+        apiKey, // Already encrypted from controller
+        enabled: true,
+        lastUsed: undefined,
+      };
+
+      await user.save();
+      console.log(`✅ [mongo_updateAIProviderKey] ${provider} API key updated successfully`);
+
+      return {
+        status: 'Success',
+        message: `${provider} API key updated successfully`,
+        provider,
+        enabled: true,
+      };
+    } catch (error) {
+      console.error(`❌ [mongo_updateAIProviderKey] Error updating ${provider} API key:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get AI provider status (without exposing keys)
+   */
+  async mongo_getAIProviderStatus(userId: string): Promise<{
+    openai?: { enabled: boolean; lastUsed?: Date };
+    gemini?: { enabled: boolean; lastUsed?: Date };
+  }> {
+    try {
+      const user = await this.userModel.findById(userId).select('aiProviders').lean();
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const status: any = {};
+      if (user.aiProviders?.openai) {
+        status.openai = {
+          enabled: user.aiProviders.openai.enabled,
+          lastUsed: user.aiProviders.openai.lastUsed,
+        };
+      }
+      if (user.aiProviders?.gemini) {
+        status.gemini = {
+          enabled: user.aiProviders.gemini.enabled,
+          lastUsed: user.aiProviders.gemini.lastUsed,
+        };
+      }
+
+      return status;
+    } catch (error) {
+      console.error('❌ [mongo_getAIProviderStatus] Error getting AI provider status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete AI provider API key
+   */
+  async mongo_deleteAIProviderKey(
+    userId: string,
+    provider: 'openai' | 'gemini',
+  ): Promise<{ status: string; message: string }> {
+    try {
+      console.log(`🔵 [mongo_deleteAIProviderKey] Deleting ${provider} API key for user ID:`, userId);
+
+      const user = await this.userModel.findById(userId);
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      if (user.aiProviders?.[provider]) {
+        delete user.aiProviders[provider];
+        await user.save();
+        console.log(`✅ [mongo_deleteAIProviderKey] ${provider} API key deleted successfully`);
+      }
+
+      return {
+        status: 'Success',
+        message: `${provider} API key deleted successfully`,
+      };
+    } catch (error) {
+      console.error(`❌ [mongo_deleteAIProviderKey] Error deleting ${provider} API key:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get decrypted API key for a provider (for internal use only)
+   */
+  async mongo_getDecryptedAPIKey(userId: string, provider: 'openai' | 'gemini'): Promise<string | null> {
+    try {
+      const user = await this.userModel.findById(userId).select('aiProviders').lean();
+      if (!user || !user.aiProviders?.[provider]?.apiKey) {
+        return null;
+      }
+
+      // Return encrypted key (will be decrypted in service layer)
+      return user.aiProviders[provider].apiKey;
+    } catch (error) {
+      console.error(`❌ [mongo_getDecryptedAPIKey] Error getting ${provider} API key:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Update last used timestamp for AI provider
+   */
+  async mongo_updateAIProviderLastUsed(userId: string, provider: 'openai' | 'gemini'): Promise<void> {
+    try {
+      const user = await this.userModel.findById(userId);
+      if (!user || !user.aiProviders?.[provider]) {
+        return;
+      }
+
+      user.aiProviders[provider].lastUsed = new Date();
+      await user.save();
+    } catch (error) {
+      console.error(`❌ [mongo_updateAIProviderLastUsed] Error updating last used:`, error);
+      // Don't throw, this is not critical
+    }
+  }
 }
 

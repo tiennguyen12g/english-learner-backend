@@ -35,7 +35,7 @@ import { Auth2FAModule } from './2fa/2fa.module';
     // },
   ],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, PassportModule, JwtModule], // Export PassportModule and JwtModule for use in other modules
 })
 export class AuthModule {}
 
