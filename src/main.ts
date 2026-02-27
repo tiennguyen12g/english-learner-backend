@@ -39,6 +39,8 @@ async function bootstrap() {
   'https://127.0.0.1:5190',
   "https://localhost:443",        // Nginx HTTPS proxy
   "https://127.0.0.1:443",        // Nginx HTTPS proxy (localhost IP)
+  "https://english.australiastorys.com",        // Production subdomain
+  "https://english.australiastorys.com:443",   // Production subdomain (explicit port)
   // 172.16.255.* subnet is handled dynamically in CORS origin function below
 ];
   
@@ -68,6 +70,13 @@ async function bootstrap() {
       return callback(null, true);
     }
 
+    // Check if origin matches production subdomain (english.australiastorys.com)
+    // Pattern: https://english.australiastorys.com or https://english.australiastorys.com:PORT
+    const productionSubdomainPattern = /^https:\/\/english\.australiastorys\.com(:\d+)?$/;
+    if (productionSubdomainPattern.test(origin)) {
+      return callback(null, true);
+    }
+
     // Reject all other origins
     callback(new Error('Not allowed by CORS'));
   };
@@ -85,7 +94,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cookie'],
     exposedHeaders: ['Set-Cookie'],
   });
-  console.log('✅ [Bootstrap] CORS enabled (with 172.16.255.* subnet support)');
+  console.log('✅ [Bootstrap] CORS enabled (with 172.16.255.* subnet and production subdomain support)');
   
   // Logging middleware - log request details including cookies
   // This must come AFTER cookieParser so cookies are parsed
